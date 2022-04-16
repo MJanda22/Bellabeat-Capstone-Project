@@ -1,0 +1,203 @@
+---
+title: "Bellabeats Capstone Analysis"
+author: "MJanda"
+date: '2022-04-16'
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background and context
+
+This report is developed as part of the Capstone Project for the Google Data Analytics Professional Certificate. This task will be undertaken using the six steps of the analysis process (Ask, Prepare, Process, Analyse, Share and Act).
+
+## Ask
+This case study involves performing data analysis for Bellabeat, a high-tech manufacturer of health-focused products for women. This task involves analysing smart device data on how consumers are using their smart devices.
+The key questions to guide the analysis are as follows:
+1.	What are some trends in smart device usage?
+2.	How could these trends apply to Bellabeat customers?
+3.	How could these trends help influence Bellabeat marketing strategy
+The aim of this research is to provide recommendations to guide future marketing strategies for the Bellabeat team through identifying gaps and opportunities. 
+
+
+The key stakeholders for this project include 
+* Urška Sršen, Bellabeat’s co-founder and Chief Creative Officer
+* Sando Mur, Mathematician and Bellabeat’s cofounder
+*The Bellabeat marketing analytics team responsible for collecting, analyzing, and reporting data that helps guide Bellabeat’s marketing strategy.
+
+## Data Preparation
+
+The dataset used for this task is the Fitbit Fitness Tracker Data (CC0: Public Domain, dataset made available through Mobius) which can be accessed here <https://www.kaggle.com/datasets/arashnic/fitbit> 
+This Kaggle data set contains personal fitness tracker from thirty fitbit users. Thirty eligible Fitbit users consented to the submission of personal tracker data, including minute-level output for physical activity, heart rate, and sleep monitoring. It includes information about daily activity, steps, and heart rate that can be used to explore users’ habits.
+I used spreadsheets to get a quick overview of all the data before cleaning and analysing it. 
+When reviewing the data, I found that it does not meet many of the criteria for data considered as good data (reliable, original, comprehensive, current and cited).
+* The data is not current as it was collected close to six years ago
+* There are a number of missing variables that would make the data more complete including information like gender, age, location etc.
+* The sample size is very small with only thirty users
+The quality of the data makes it difficult to provide useful insights as the data may be biased and not be representative of the population group.
+
+## Data Processing
+Data cleaning and analysis was conducted using RStudio
+The following packages were loaded on RStudio
+```{r loading packages}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+library(here)
+library(lubridate)
+library(data.table)
+```
+
+
+
+The following processes were undertaken before analysing the data
+
+#Checking working directory
+```{r working directory}
+getwd()
+```
+
+#Importing data
+```{r data import}
+daily_activity <- read.csv("dailyActivity_merged.csv", header = TRUE, sep = ",")
+daily_sleep <- read.csv("sleepDay_merged.csv", header = TRUE, sep = ",")
+
+```
+
+#Information about the data
+The daily activity data has 940 observations of 15 variables and the daily sleep data has 413 observations of 5 variable.names
+
+#Checking the structure of the dataset
+```{r data structure}
+str(daily_activity)
+str(daily_sleep)
+colnames(daily_activity)
+colnames(daily_sleep)
+
+```
+#Transforming the data
+```{r data transformation}
+SleepDay_new <- separate(daily_sleep, SleepDay, c("Date", "Time"), " ")
+SleepDay_new %>%
+  rename(ActivityDate = Date)
+daily_activity %>%
+  rename(Date = ActivityDate)
+colnames(daily_activity)
+colnames(SleepDay_new)
+SleepDayNewV2 <- SleepDay_new %>%
+  rename(ActivityDate = Date)
+colnames(SleepDayNewV2)
+daily_activity$ActivityDate <- as.Date(daily_activity$ActivityDate, "%m/%d/%Y")
+merged_data <- merge(daily_activity, SleepDayNewV2, by=c("Id", "ActivityDate"))
+head(merged_data)
+colnames(merged_data)
+merged_dataV2 <-merged_data %>%
+  mutate(hours_sleep = TotalMinutesAsleep/60, hours_in_bed = TotalTimeInBed/60)
+
+```
+#Removing duplicates
+```{r removing duplicates}
+unique_merged_data <- merged_dataV2[!duplicated(merged_dataV2),]
+```
+
+Three duplicate rows were removed as a result
+
+#Unique individuals in the data
+```{r unique individuals}
+unique_merged_dataV2 <-unique_merged_data %>%
+  mutate(hours_sedentary = SedentaryMinutes/60)
+n_distinct(unique_merged_data$Id)
+
+```
+
+There are 24 unique participants in this merged data set
+##Data Analysis
+A statistical summary of the variables which were used for this analysis is provided below
+```{r descriptive statistics}
+unique_merged_dataV2 %>%
+  select(TotalSteps,
+         hours_sleep,
+         hours_in_bed,
+         hours_sedentary,
+         Calories) %>%
+  summary()
+
+unique_merged_dataV2 %>%
+  count(hours_sleep >= "8")
+
+```
+
+A summary of the data shows that the daily steps taken by users ranged from 17 steps to 22770 steps with the average steps at 8515.
+Users daily sleep logged ranged from 0.97 to 13 hours with the average at 6.9 hours. The average time in bed was 7.6 hours although users slept for 6.9 hours.
+The data also shows that users are quite sedentary during the day with the average hours users spent sedentary being 11.9 hours
+
+8 or more hours of sleep was true for only 97 of the 410 observations
+
+## Data visualisations (Share)
+The following visualisations were developed to support the findings
+```{r data visualisation}
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = TotalSteps, y = TotalDistance))
+
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = TotalSteps, y = Calories), color = "blue")+
+  geom_smooth(mapping = aes(x = TotalSteps, y = Calories), color = "red")+
+  labs(title ="Total Steps vs Total Calories")
+ggsave("Steps vs Calories.png")
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = TotalTimeInBed, y = TotalMinutesAsleep), color = "blue")+
+  geom_smooth(mapping = aes(x = TotalTimeInBed, y = TotalMinutesAsleep), color = "red")+
+  labs(title ="Total Sleep vs Total Time in Bed")
+ggsave("Sleep vs time in bed.png")
+
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = SedentaryMinutes, y = Calories), color = "blue")+
+  geom_smooth(mapping = aes(x = SedentaryMinutes, y = Calories), color = "red")+
+  labs(title ="Calories Burned vs Sedentary Minutes")
+
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = LightlyActiveMinutes, y = Calories), color = "blue")+
+  geom_smooth(mapping = aes(x = LightlyActiveMinutes, y = Calories), color = "red")+
+  labs(title ="Calories Burned vs Lightly Active Minutes")
+
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = FairlyActiveMinutes, y = Calories), color = "blue")+
+  geom_smooth(mapping = aes(x = FairlyActiveMinutes, y = Calories), color = "red")+
+  labs(title ="Calories Burned vs Fairly Active Minutes")
+
+ggplot(data = unique_merged_dataV2)+
+  geom_point(mapping = aes(x = VeryActiveMinutes, y = Calories), color = "blue")+
+  geom_smooth(mapping = aes(x = VeryActiveMinutes, y = Calories), color = "red")+
+  labs(title ="Calories Burned vs Very Active Minutes")
+
+ggsave("Calories Burned vs Sedentary Minutes.png")
+
+ggsave("Calories Burned vs Lightly Active Minutes.png")
+
+ggsave("Calories Burned vs Fairly Active Minutes.png")
+
+ggsave("Calories Burned vs Very Active Minutes.png")
+```
+The data shows that those who take more steps seem to burn more calories, therefore there is a positive correlation between the total steps and the total calories, although there is also a great deal of variance meaning that this isn’t consistent.
+There is a positve correlation between the time people spend in bed and the sleep time. Most of the data points are quite close to the trendline, although there are a few outliers.
+
+##Findings and recommendations (Act)
+The findings show that
+* Users are quite inactive during the day.
+* There is a positive correlation between steps taken and calories burned. The more active one is, the more calories you burn.
+* Many users are also not getting the required 8 hours of sleep a day. On average, users also spend more minutes in bed then minutes actually sleeping.
+
+
+Based on the findings, the following is recommended for the Bellabeat Marketing Strategy
+* Include inactivity warning feature when users have been sedentary for too long to encourage users to be more active.
+* Collect key demographic information such as gender and age but also ensuring that the system and use of the data will adhere to user privacy. Knowing the user type will help Bellabeat design relevant products for the target population
+* Provide incentives for users who meet certain goals such as 10 000 steps a day, regular water intake and getting enough sleep.
+* Include feature to collect information on type of activities users are participating in when they are active.
+
